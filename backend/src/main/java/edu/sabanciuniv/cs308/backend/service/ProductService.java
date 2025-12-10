@@ -27,7 +27,21 @@ public class ProductService {
                 .orElseThrow(() -> new RuntimeException("Product not found: " + id));
     }
 
+    // ✅ WishlistService gibi yerler bunu çağırıyor
+    public ProductEntity getProductById(String id) {
+        return getById(id);
+    }
+
     public ProductEntity create(ProductEntity product) {
         return productRepo.save(product);
+    }
+
+    // ✅ SKU ile doğru varyantı bulan helper
+    public ProductEntity.Variant getVariantBySku(ProductEntity product, String sku) {
+        return product.getVariants()
+                .stream()
+                .filter(v -> v.getSku().equalsIgnoreCase(sku))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Variant not found for SKU: " + sku));
     }
 }

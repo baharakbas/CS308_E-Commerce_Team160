@@ -29,6 +29,7 @@ export default function App() {
           {/* Public auth pages */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/wishlist" element={<Wishlist />} />
 
           {/* Public browsing */}
           <Route path="/category/sweatshirts" element={<Sweatshirts />} />
@@ -51,6 +52,7 @@ export default function App() {
                 <Profile />
               </RequireAuth>
             }
+      
           />
 
           <Route

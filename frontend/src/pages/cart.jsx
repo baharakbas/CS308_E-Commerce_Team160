@@ -1,5 +1,6 @@
 // src/pages/Cart.jsx
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   meRequest,
   getBasket,
@@ -11,6 +12,8 @@ import { useNavigate } from "react-router-dom";
 const CART_STORAGE_KEY = "tidl_cart_id";
 
 export default function Cart({ onClose }) {
+  const navigate = useNavigate();
+
   // fallback so we don't crash if someone renders <Cart /> without onClose
   const safeOnClose = onClose || (() => {});
 
@@ -46,7 +49,7 @@ export default function Cart({ onClose }) {
     window.localStorage.setItem(CART_STORAGE_KEY, orderId);
   };
 
-  // load current user
+  // load current user (if logged in)
   useEffect(() => {
     const loadMe = async () => {
       try {
@@ -59,6 +62,7 @@ export default function Cart({ onClose }) {
           phone: data.phoneNumber || "",
         }));
       } catch (err) {
+        // not logged in
         setUser(null);
       } finally {
         setAuthChecked(true);
@@ -67,12 +71,9 @@ export default function Cart({ onClose }) {
     loadMe();
   }, []);
 
-  // load basket once auth is known & user exists
+  // load basket once auth status is known
   useEffect(() => {
-    if (!authChecked || !user) {
-      setLoadingBasket(false);
-      return;
-    }
+    if (!authChecked) return;
 
     const fetchBasket = async () => {
       setLoadingBasket(true);
@@ -80,7 +81,7 @@ export default function Cart({ onClose }) {
       try {
         const cartId = getStoredCartId();
         const { data } = await getBasket({
-          userId: user.id,
+          userId: user?.id, // can be undefined for guests
           cartId,
         });
         setBasket(data);
@@ -105,7 +106,6 @@ export default function Cart({ onClose }) {
 
   // basket item handlers
   const handleQtyChange = async (item, newQty) => {
-    if (!user) return;
     if (newQty < 0) return;
 
     const key = `${item.productId}-${item.sku}`;
@@ -115,7 +115,7 @@ export default function Cart({ onClose }) {
     try {
       const cartId = basket?.orderId || getStoredCartId();
       const { data } = await updateBasketItem({
-        userId: user.id,
+        userId: user?.id, // optional
         cartId,
         productId: item.productId,
         sku: item.sku,
@@ -133,8 +133,6 @@ export default function Cart({ onClose }) {
   };
 
   const handleRemoveItem = async (item) => {
-    if (!user) return;
-
     const key = `${item.productId}-${item.sku}`;
     setSavingKey(key);
     setErrorMsg("");
@@ -142,7 +140,7 @@ export default function Cart({ onClose }) {
     try {
       const cartId = basket?.orderId || getStoredCartId();
       const { data } = await removeBasketItem({
-        userId: user.id,
+        userId: user?.id, // optional
         cartId,
         productId: item.productId,
         sku: item.sku,
@@ -158,14 +156,13 @@ export default function Cart({ onClose }) {
     }
   };
 
-  const requireLoginView = authChecked && !user;
-
-  // simple fake shipping like the example
+  // simple fake shipping
   const estimatedShipping = 8.5;
   const subtotal = basket?.subtotal || 0;
   const estimatedTotal = subtotal + estimatedShipping;
 
   const handleGoToCheckout = () => {
+    // block if basket is empty
     if (!basket || !basket.items || basket.items.length === 0) {
       setErrorMsg("Your basket is empty.");
       return;
@@ -266,59 +263,106 @@ export default function Cart({ onClose }) {
                               </button>
                             </div>
 
-                            <div className="cart-drawer-item-bottom">
-                              <div className="cart-qty-control">
-                                <button
-                                  className="cart-qty-btn"
-                                  onClick={() =>
-                                    handleQtyChange(
-                                      item,
-                                      item.quantity - 1
-                                    )
-                                  }
-                                  disabled={busy || item.quantity <= 1}
-                                  type="button"
-                                >
-                                  –
-                                </button>
-                                <span className="cart-qty-value">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  className="cart-qty-btn"
-                                  onClick={() =>
-                                    handleQtyChange(
-                                      item,
-                                      item.quantity + 1
-                                    )
-                                  }
-                                  disabled={busy}
-                                  type="button"
-                                >
-                                  +
-                                </button>
-                              </div>
+          {loadingBasket && <p className="cart-muted">Loading your basket…</p>}
+          {errorMsg && <p className="cart-error">{errorMsg}</p>}
 
-                              <div className="cart-drawer-prices">
-                                <span className="cart-line-total">
-                                  {formatMoney(item.lineTotal)}
-                                </span>
+          {!loadingBasket &&
+            basket &&
+            (!basket.items || basket.items.length === 0) && (
+              <div className="cart-empty-state">
+                <p>Your basket is empty.</p>
+              </div>
+            )}
 
-                                {item.quantity > 1 && (
-                                  <span className="cart-unit-caption">
-                                    {formatMoney(item.unitPrice)} each
-                                  </span>
-                                )}
-                              </div>
+          {!loadingBasket &&
+            basket &&
+            basket.items &&
+            basket.items.length > 0 && (
+              <div className="cart-drawer-items">
+                {basket.items.map((item) => {
+                  const key = `${item.productId}-${item.sku}`;
+                  const busy = savingKey === key;
+
+                  const imageSrc =
+                    item.mainImageUrl ||
+                    (item.imageUrls && item.imageUrls[0]) ||
+                    null;
+
+                  return (
+                    <div className="cart-drawer-item" key={key}>
+                      {imageSrc && (
+                        <img
+                          src={imageSrc}
+                          alt={item.name}
+                          className="cart-drawer-item-image"
+                        />
+                      )}
+
+                      <div className="cart-drawer-item-main">
+                        <div className="cart-drawer-item-header">
+                          <div>
+                            <div className="cart-drawer-item-name">
+                              {item.name}
+                            </div>
+                            <div className="cart-drawer-item-meta">
+                              {`SKU: ${item.sku}`}
                             </div>
                           </div>
+                          <button
+                            className="cart-drawer-remove"
+                            onClick={() => handleRemoveItem(item)}
+                            disabled={busy}
+                            type="button"
+                          >
+                            🗑
+                          </button>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-            </>
-          )}
+
+                        <div className="cart-drawer-item-bottom">
+                          <div className="cart-qty-control">
+                            <button
+                              className="cart-qty-btn"
+                              onClick={() =>
+                                handleQtyChange(item, item.quantity - 1)
+                              }
+                              disabled={busy || item.quantity <= 1}
+                              type="button"
+                            >
+                              –
+                            </button>
+                            <span className="cart-qty-value">
+                              {item.quantity}
+                            </span>
+                            <button
+                              className="cart-qty-btn"
+                              onClick={() =>
+                                handleQtyChange(item, item.quantity + 1)
+                              }
+                              disabled={busy}
+                              type="button"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <div className="cart-drawer-prices">
+                            <span className="cart-line-total">
+                              {formatMoney(item.lineTotal)}
+                            </span>
+
+                            {item.quantity > 1 && (
+                              <span className="cart-unit-caption">
+                                {formatMoney(item.unitPrice)} each
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
         </div>
 
         <footer className="cart-drawer-footer">
@@ -341,12 +385,7 @@ export default function Cart({ onClose }) {
             className="cart-checkout-button"
             type="button"
             onClick={handleGoToCheckout}
-            disabled={
-              requireLoginView ||
-              !basket ||
-              !basket.items ||
-              basket.items.length === 0
-            }
+            disabled={!basket || !basket.items || basket.items.length === 0}
           >
             CHECKOUT
           </button>
