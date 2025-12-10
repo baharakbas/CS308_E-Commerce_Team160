@@ -7,6 +7,7 @@ import {
   updateBasketItem,
   removeBasketItem,
 } from "../lib/api";
+import { useNavigate } from "react-router-dom";
 
 const CART_STORAGE_KEY = "tidl_cart_id";
 
@@ -15,6 +16,8 @@ export default function Cart({ onClose }) {
 
   // fallback so we don't crash if someone renders <Cart /> without onClose
   const safeOnClose = onClose || (() => {});
+
+  const navigate = useNavigate(); // <-- EKLENDİ
 
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -165,13 +168,8 @@ export default function Cart({ onClose }) {
       return;
     }
 
-    // clear any previous error message
-    setErrorMsg("");
-
-    // close the cart drawer
+    // Sepet boş değilse: önce drawer'ı kapat, sonra checkout sayfasına git
     safeOnClose();
-
-    // navigate to the checkout page
     navigate("/checkout");
   };
 
@@ -202,12 +200,68 @@ export default function Cart({ onClose }) {
         </header>
 
         <div className="cart-drawer-body">
-          {/* Optional note for guests */}
-          {authChecked && !user && (
-            <p className="cart-muted">
-              You’re not signed in. Your basket is saved only on this device.
-            </p>
-          )}
+          {requireLoginView ? (
+            <div className="cart-empty-state">
+              <p>You need to sign in to view your basket.</p>
+            </div>
+          ) : (
+            <>
+              {loadingBasket && (
+                <p className="cart-muted">Loading your basket…</p>
+              )}
+              {errorMsg && <p className="cart-error">{errorMsg}</p>}
+
+              {!loadingBasket &&
+                basket &&
+                (!basket.items || basket.items.length === 0) && (
+                  <div className="cart-empty-state">
+                    <p>Your basket is empty.</p>
+                  </div>
+                )}
+
+              {!loadingBasket &&
+                basket &&
+                basket.items &&
+                basket.items.length > 0 && (
+                  <div className="cart-drawer-items">
+                    {basket.items.map((item) => {
+                      const key = `${item.productId}-${item.sku}`;
+                      const busy = savingKey === key;
+
+                      const imageSrc =
+                        item.mainImageUrl ||
+                        (item.imageUrls && item.imageUrls[0]) ||
+                        null;
+
+                      return (
+                        <div className="cart-drawer-item" key={key}>
+                          {imageSrc && (
+                            <img
+                              src={imageSrc}
+                              alt={item.name}
+                              className="cart-drawer-item-image"
+                            />
+                          )}
+
+                          <div className="cart-drawer-item-main">
+                            <div className="cart-drawer-item-header">
+                              <div>
+                                <div className="cart-drawer-item-name">
+                                  {item.name}
+                                </div>
+                                <div className="cart-drawer-item-meta">
+                                  {`SKU: ${item.sku}`}
+                                </div>
+                              </div>
+                              <button
+                                className="cart-drawer-remove"
+                                onClick={() => handleRemoveItem(item)}
+                                disabled={busy}
+                                type="button"
+                              >
+                                🗑
+                              </button>
+                            </div>
 
           {loadingBasket && <p className="cart-muted">Loading your basket…</p>}
           {errorMsg && <p className="cart-error">{errorMsg}</p>}

@@ -12,9 +12,7 @@ import Shirts from "./pages/category/shirts";
 import Pants from "./pages/category/pants";
 import ProductDetailMock from "./pages/ProductDetailMock";
 import ProductDetail from "./pages/ProductDetail";
-import Search from "./pages/Search.jsx";
-import Checkout from "./pages/Checkout.jsx";
-import Wishlist from "./pages/Wishlist.jsx";  
+import Checkout from "./pages/Checkout";
 
 import { CartDrawerProvider } from "./context/CartDrawerContext.jsx";
 import "./index.css";
@@ -41,7 +39,7 @@ export default function App() {
             path="/shop-the-look"
             element={<div>TODO: Shop The Look</div>}
           />
-          <Route path="/search" element={<Search />} />
+          <Route path="/search" element={<div>TODO: Search</div>} />
 
           <Route path="/product/mock" element={<ProductDetailMock />} />
           <Route path="/product/:productId" element={<ProductDetail />} />
@@ -56,10 +54,15 @@ export default function App() {
             }
       
           />
-          
 
-          
-          <Route path="/checkout" element={<Checkout />} />
+          <Route
+            path="/checkout"
+            element={
+              <RequireAuth>
+                <Checkout />
+              </RequireAuth>
+            }
+          />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/home" replace />} />
